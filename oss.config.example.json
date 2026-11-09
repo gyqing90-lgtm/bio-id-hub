@@ -1,0 +1,9 @@
+{
+  "_说明": "把这个文件复制成 oss.config.json，填好 4 个值，tools/publish-oss.js 就能一条命令发版。",
+  "_注意": "akSecret 等同于该账号的写权限：别提交到任何仓库、别发给别人、别写进文档。",
+
+  "bucket": "填你的桶名",
+  "region": "填地域，例如 oss-cn-hangzhou（写 cn-hangzhou 也行）",
+  "akId": "填 AccessKey ID",
+  "akSecret": "填 AccessKey Secret"
+}

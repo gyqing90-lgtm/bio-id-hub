@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>物种鉴定聚合台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="update-bar" id="update-bar" hidden>
+  <span class="ub-icon" aria-hidden="true"></span>
+  <span class="ub-text" id="ub-text"></span>
+  <span class="ub-notes" id="ub-notes"></span>
+  <button class="ub-go" id="ub-go">立即更新</button>
+  <button class="ub-close" id="ub-close" title="稍后再说">×</button>
+</div>
+
+<header>
+  <div class="brand">
+    <h1>物种鉴定聚合台</h1>
+    <span>一张图 · 多站同查 · 结果归一</span>
+    <button class="ver" id="app-ver" hidden></button>
+  </div>
+  <div class="chips" id="chips" hidden></div>
+  <button id="btn-author" class="tiny" title="用着有问题、想要什么功能，欢迎到项目仓库提 Issue">反馈</button>
+  <button id="btn-settings">账号设置</button>
+</header>
+
+<div class="picker-bar">
+  <div class="picker-head">
+    <span class="picker-label">参与识别：</span>
+    <select id="pick-group" class="pick-group" title="先选「要认的是什么」：选完自动切到这一类群，下面只留这一类群（加上能跟它同时开的「多类群」「不常用类群」）的全部模型。选「自动（混合）」则展开所有类群"></select>
+    <span class="picker-ops">
+      <button class="tiny" id="pick-all" title="当前这一类群的模型全部打开 + 多类群 + 不常用类群（类群互斥，换类群用上面的下拉）">全选</button>
+      <button class="tiny" id="pick-default" title="恢复成内置的默认站点组合">默认</button>
+    </span>
+  </div>
+  <div class="site-picker" id="site-picker"></div>
+</div>
+
+<div class="inat-bar" id="inat-bar">
+  <span class="picker-label">检索地区：</span>
+  <select id="inat-place-sel" class="inat-place-sel" title="结果里学名旁的「iNat」「PPBC」按钮都按这个地区圈定范围"></select>
+  <input id="inat-place-q" class="inat-place-q" autocomplete="off" spellcheck="false"
+    placeholder="或输入地区名搜索（城市 / 保护区都行，如 武夷山、Kyoto）">
+  <div class="place-sugs" id="place-sugs" hidden></div>
+  <span class="inat-hint" id="inat-hint">只影响结果里学名旁的「iNat」「PPBC」按钮跳到哪个范围，识别本身不受影响</span>
+</div>
+
+<div class="copy-bar">
+  <span class="picker-label">点击物种名：</span>
+  <div class="seg" id="copy-mode" role="group" aria-label="点击物种名称时的复制方式"></div>
+  <span class="copy-tip" id="copy-tip"></span>
+</div>
+
+<main>
+  <aside>
+    <div class="dropzone" id="dropzone">
+      <b>拖入图片 / 点击选择</b>
+      支持 JPG PNG WEBP，可多选
+      <div class="hint">也可直接 Ctrl+V 粘贴截图</div>
+      <input type="file" id="file-input" accept="image/*" multiple hidden>
+    </div>
+    <div class="queue" id="queue"></div>
+  </aside>
+
+  <section id="stage">
+    <div class="empty" id="empty">
+      <h3>还没有待识别的图片</h3>
+      <p>把照片拖进左侧，或点一下上传区。一次可放多张，会排队依次识别。</p>
+    </div>
+    <div id="content" hidden>
+      <div class="panel verdict">
+        <div>
+          <div class="v-text" id="v-text">—</div>
+          <div class="v-sub" id="v-sub"></div>
+        </div>
+        <div class="spacer">
+          <button class="tiny" id="btn-view" title="放大查看这张图（也可直接点左侧缩略图）">看大图</button>
+          <button class="tiny" id="btn-copy">复制结论</button>
+          <button class="tiny" id="btn-csv">导出本张 CSV</button>
+          <button class="tiny danger" id="btn-del" title="把这张图从列表里移除（不删除你电脑上的原文件）">删除这张</button>
+          <button class="tiny primary" id="btn-retry">重新识别</button>
+        </div>
+      </div>
+
+      <div class="grid-sites" id="sites"></div>
+
+      <div class="panel consensus">
+        <h2>合并结果 <small>站点内部先按 Top5 归一化，再统计得票</small>
+          <span style="margin-left:auto"><button class="tiny" id="btn-csv-all">导出全部 CSV</button></span>
+        </h2>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:34px">#</th>
+              <th>中文名 / 学名</th>
+              <th style="width:120px">支持站点</th>
+              <th style="width:150px">综合得分</th>
+              <th style="width:220px">各站点分值</th>
+              <th style="width:150px" id="ebird-th" hidden>eBird 近14天</th>
+            </tr>
+          </thead>
+          <tbody id="agg-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="friends" id="friends"></footer>
+
+<div class="modal-mask" id="modal">
+  <div class="modal">
+    <h3>账号与站点设置</h3>
+    <p class="tip">密码以密文形式保存在本机 data/config.json（Windows DPAPI 加密，只有本机本账户能解开），不回显、不上传。留空表示不修改。</p>
+    <div id="config-body"></div>
+    <div class="actions">
+      <button id="btn-close">关闭</button>
+      <button class="primary" id="btn-save">保存并登录</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="region-modal">
+  <div class="modal region">
+    <h3>eBird 所在地区</h3>
+    <p class="tip">eBird 用来核对候选鸟种在<b>你所在地区</b>近 14 天有没有记录，所以先说一下你在哪。定位只用来帮你选地区，不会上传其他信息。</p>
+    <div class="region-guess" id="region-guess"></div>
+    <div class="field"><label>所在地区</label><select id="region-pick"></select></div>
+    <div class="field"><label>或手填代码</label><input id="region-code" autocomplete="off" spellcheck="false" placeholder="CN-35 福建 / US 美国 / JP 日本"></div>
+    <div class="region-note" id="region-note"></div>
+    <div class="actions">
+      <button class="region-locate" id="region-locate" title="按当前位置自动选一个地区（浏览器会问一次定位权限）">用我的定位</button>
+      <button class="region-off" id="region-off" title="这次不参与地区核对">关掉 eBird</button>
+      <button id="region-cancel">取消</button>
+      <button class="primary" id="region-ok">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="nat-modal">
+  <div class="modal nat">
+    <h3>自然在线 · 名录里的「<span id="nat-genus">—</span>」属</h3>
+    <p class="tip">自然在线上各保护区自己编的物种名录（跟植物智的照片墙不是一回事）：这里看的是<b>名录里收了这个属的哪些种</b>。站点按标题搜索，同名的地方可能混进来，看站名再点。</p>
+    <div class="nat-bar">
+      <label for="nat-q">站点关键词</label>
+      <input id="nat-q" autocomplete="off" spellcheck="false" placeholder="武夷山 / 闽江源 / 车八岭">
+      <button class="tiny primary" id="nat-go">查</button>
+      <span class="nat-scope" id="nat-scope"></span>
+    </div>
+    <div class="nat-body" id="nat-body"></div>
+    <div class="actions">
+      <button id="nat-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="gds-modal">
+  <div class="modal gds">
+    <h3>GBIF · <span id="gds-genus">—</span> 属</h3>
+    <p class="tip">先向 GBIF 要<b>真实记录</b>（这个属在该地区有哪几种、各多少条），中文名优先从 <b>iNaturalist</b> 取，取不到的才让 DeepSeek 补、补不上就留空。学名一律以 GBIF 为准。</p>
+    <div class="gds-q"><span class="gds-q-label">发出的指令</span><code id="gds-question">…</code></div>
+    <div class="gds-body" id="gds-body"></div>
+    <div class="actions">
+      <button id="gds-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="author-modal">
+  <div class="modal author">
+    <h3>问题反馈</h3>
+    <p class="tip">用着不顺手、想要个新功能、或者觉得某个物种名不对，欢迎到项目仓库提 Issue。</p>
+    <p class="author-line">github.com/gyqing90-lgtm/bio-id-hub/issues</p>
+    <div class="actions">
+      <button id="author-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="viewer" id="viewer" hidden>
+  <div class="viewer-bar">
+    <div class="vinfo">
+      <span class="vname" id="v-name"></span>
+      <span class="vres" id="v-res"></span>
+    </div>
+    <div class="vops">
+      <button id="v-out" title="缩小（滚轮向下）">−</button>
+      <span class="vzoom" id="v-zoom">100%</span>
+      <button id="v-in" title="放大（滚轮向上）">+</button>
+      <button id="v-fit" title="铺满窗口（双击图片同样效果）">适应</button>
+      <button id="v-one" title="按原始像素显示">1:1</button>
+      <button id="v-close" title="关闭（Esc）">×</button>
+    </div>
+  </div>
+  <div class="viewer-stage" id="v-stage">
+    <img id="v-img" alt="">
+  </div>
+  <div class="vhint">滚轮缩放 · 按住拖动平移 · 双击在「适应窗口 / 原始大小」之间切换 · Esc 关闭</div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
